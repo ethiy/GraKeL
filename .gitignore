@@ -75,3 +75,6 @@ target/
 grakel/kernels/_c_functions.cpython-35m-x86_64-linux-gnu.so
 grakel/kernels/_c_functions/functions.cpp
 grakel/kernels/_isomorphism/bliss.cpp
+
+# VS Code
+.vscode
