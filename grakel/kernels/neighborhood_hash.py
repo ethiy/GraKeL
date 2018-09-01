@@ -354,8 +354,7 @@ class NeighborhoodHash(Kernel):
             The kernel value.
 
         """
-        k = sum(nh_compare_labels(x[r], y[r]) for r in range(self.R))
-        return k / (1.0*self.R)
+        return sum(nh_compare_labels(x[r], y[r]) for r in range(self.R)) / float(self.R)
 
     def diagonal(self):
         """Calculate the kernel matrix diagonal of the fit/transfromed data.
@@ -479,10 +478,8 @@ class NeighborhoodHash(Kernel):
             A list of labels with their counts (sorted).
 
         """
-        n = len(labels)
-        result = 0
-        if n == 0:
-            return result
+        if not len(labels):
+            return 0
 
         for b in range(self.bits):
             # The output array elements that will have sorted arr
@@ -510,6 +507,7 @@ class NeighborhoodHash(Kernel):
             labels = output
 
         previous, occ = labels[0], 1
+        result = 0
         for i in range(1, len(labels)):
             label = labels[i]
             if label == previous:
