@@ -48,7 +48,7 @@ class RandomWalk(Kernel):
 
     Attributes
     ----------
-    lamda : float, default=0.1
+    _lambda : float, default=0.1
         A lambda factor concerning summation.
 
     kernel_type : str, valid_values={"geometric", "exponential"},
@@ -72,7 +72,7 @@ class RandomWalk(Kernel):
 
     def __init__(self, n_jobs=None,
                  normalize=False, verbose=False,
-                 lamda=0.1, method_type="fast",
+                 _lambda=0.1, method_type="fast",
                  kernel_type="geometric", p=None):
         """Initialise a random_walk kernel."""
         # setup valid parameters and initialise from parent
@@ -86,9 +86,9 @@ class RandomWalk(Kernel):
         self.method_type = method_type
         self.kernel_type = kernel_type
         self.p = p
-        self.lamda = lamda
+        self._lambda = _lambda
         self.initialized_.update({"method_type": False, "kernel_type": False,
-                                  "p": False, "lamda": False})
+                                  "p": False, "_lambda": False})
 
     def initialize_(self):
         """Initialize all transformer arguments, needing initialization."""
@@ -101,14 +101,9 @@ class RandomWalk(Kernel):
                     # Spectral Decomposition if adjacency matrix is symmetric
                     return (np.real(np.sum(v, axis=0)), np.real(w))
 
-                def add_input(x):
-                    return invert(*eig(x))
-
-                self._add_input = add_input
+                self._add_input = lambda x: invert(*eig(x))
             elif self.method_type == "baseline":
-                def add_input(x):
-                    return x
-                self._add_input = add_input
+                self._add_input = lambda x: x
             else:
                 raise ValueError('unsupported method_type')
             self.initialized_["method_type"] = True
@@ -127,25 +122,25 @@ class RandomWalk(Kernel):
                         power = 1
                         for k in range(1, self.p + 1):
                             fact *= k
-                            power *= self.lamda
+                            power *= self._lambda
                             self._mu.append(fact/power)
                     else:
                         self._mu = [1]
                         power = 1
                         for k in range(1, self.p + 1):
-                            power *= self.lamda
+                            power *= self._lambda
                             self._mu.append(power)
                 else:
                     raise TypeError('p must be a positive integer bigger than '
                                     'zero or nonetype')
                 self.initialized_["kernel_type"] = True
 
-        if not self.initialized_["lamda"]:
-            if self.lamda <= 0:
+        if not self.initialized_["_lambda"]:
+            if self._lambda <= 0:
                 raise TypeError('lambda must be positive bigger than equal')
-            elif self.lamda > 0.5 and self.p is None:
-                warnings.warn('ranodm-walk series may fail to converge')
-            self.initialized_["lamda"] = True
+            elif self._lambda > 0.5 and self.p is None:
+                warnings.warn('random-walk series may fail to converge')
+            self.initialized_["_lambda"] = True
 
     def parse_input(self, X):
         """Parse and create features for random_walk kernel.
@@ -239,9 +234,9 @@ class RandomWalk(Kernel):
                     S += k*P
             else:
                 if self.kernel_type == "geometric":
-                    S = inv(np.identity(s) - self.lamda*XY).T
+                    S = inv(np.identity(s) - self._lambda*XY).T
                 elif self.kernel_type == "exponential":
-                    S = expm(self.lamda*XY).T
+                    S = expm(self._lambda*XY).T
 
             return np.sum(S)
         elif self.method_type == "fast":
@@ -269,9 +264,9 @@ class RandomWalk(Kernel):
                 S = np.diagflat(S)
             else:
                 if self.kernel_type == "geometric":
-                    S = np.diagflat(1/(1-self.lamda*Dij))
+                    S = np.diagflat(1/(1-self._lambda*Dij))
                 elif self.kernel_type == "exponential":
-                    S = np.diagflat(np.exp(self.lamda*Dij))
+                    S = np.diagflat(np.exp(self._lambda*Dij))
 
             return ff.dot(S).dot(ff.T)
 
@@ -328,13 +323,13 @@ class RandomWalkLabeled(RandomWalk):
 
     def __init__(self, n_jobs=None,
                  normalize=False, verbose=False,
-                 lamda=0.1, method_type="fast",
+                 _lambda=0.1, method_type="fast",
                  kernel_type="geometric", p=None):
         """Initialise a labeled random_walk kernel."""
         # Initialise from parent
         super(RandomWalkLabeled, self).__init__(
             n_jobs=n_jobs, normalize=normalize, verbose=verbose,
-            lamda=lamda, method_type=method_type, kernel_type=kernel_type,
+            _lambda=_lambda, method_type=method_type, kernel_type=kernel_type,
             p=p)
 
     def parse_input(self, X):
@@ -446,12 +441,12 @@ class RandomWalkLabeled(RandomWalk):
                     P *= XY
                     S += k*P
             elif self.kernel_type == "exponential":
-                S = expm(self.lamda*XY).T
+                S = expm(self._lambda*XY).T
             elif self.kernel_type == "geometric":
                 # Baseline Algorithm as presented in
                 # [Vishwanathan et al., 2006]
                 Id = np.identity(s)
-                S = inv(Id - self.lamda*XY).T
+                S = inv(Id - self._lambda*XY).T
 
             return np.sum(S)
         elif self.method_type == "fast" and self.kernel_type == "geometric":
@@ -459,15 +454,15 @@ class RandomWalkLabeled(RandomWalk):
             # [Vishwanathan et al., 2006] p.12, s.4.2
             AxAy = [(X[k], Y[k]) for k in ck]
 
-            def lsf(x, lamda):
+            def lsf(x, _lambda):
                 y = 0
                 xm = x.reshape((xs, ys))
                 for Ax, Ay in AxAy:
                     y += np.reshape(np.matmul(np.matmul(Ax, xm), Ay), (mn,))
-                return x - self.lamda * y
+                return x - self._lambda * y
 
             # A*x=b
-            A = LinearOperator((mn, mn), matvec=lambda x: lsf(x, self.lamda))
+            A = LinearOperator((mn, mn), matvec=lambda x: lsf(x, self._lambda))
             b = np.ones(mn)
             x_sol, _ = cg(A, b, tol=1.0e-6, maxiter=200)
             return np.sum(x_sol)
