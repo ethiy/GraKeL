@@ -4,6 +4,8 @@
 import collections
 import warnings
 
+import itertools
+
 import numpy as np
 
 from sklearn.exceptions import NotFittedError
@@ -145,23 +147,23 @@ class ShortestPathAttr(Kernel):
         # Initialise
         Sx, phi_x = x
         Sy, phi_y = y
-        kernel = 0
-        dimx = Sx.shape[0]
-        dimy = Sy.shape[0]
-        for i in range(dimx):
-            for j in range(dimx):
-                if i == j:
-                    continue
-                for k in range(dimy):
-                    for m in range(dimy):
-                        if k == m:
-                            continue
-                        if (Sx[i, j] == Sy[k, m] and
-                                Sx[i, j] != float('Inf')):
-                            kernel += self.attribute_kernel(phi_x[i], phi_y[k]) *\
-                                self.attribute_kernel(phi_x[j], phi_y[m])
-
-        return kernel
+        return sum(
+            [
+                (
+                    self.attribute_kernel(phi_x[i], phi_y[k])
+                    *
+                    self.attribute_kernel(phi_x[j], phi_y[m])
+                )
+                for (i, j, k, m) in itertools.product(
+                    range(Sx.shape[0]),
+                    range(Sx.shape[0]),
+                    range(Sy.shape[0]),
+                    range(Sy.shape[0]),
+                )
+                if i != j and k != m
+                if (Sx[i, j] == Sy[k, m] and Sx[i, j] != float('Inf'))
+            ]
+        )
 
 
 class ShortestPath(Kernel):
